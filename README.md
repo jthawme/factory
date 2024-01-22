@@ -2,7 +2,7 @@
 
 ## Roadmap
 
-- Load config file and also have very valid defaults ❌
+- Load config file and also have very valid defaults ✅
 - Transform .md files into .json ❌
 - Transform frontmatter in .md files into json ❌
 - Find and transform image files into responsive picture element valid attributes ❌

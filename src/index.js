@@ -7,5 +7,17 @@ import { loadFile } from "./modules/file.js";
  */
 export const run = async (file) => {
   const fileContent = await loadFile(file);
-  const data = await transformContent(fileContent);
+
+  return runContent(fileContent);
+};
+
+/**
+ *
+ * @param {string} content
+ * @returns
+ */
+export const runContent = async (content) => {
+  const data = await transformContent(content);
+
+  return data;
 };

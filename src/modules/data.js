@@ -1,54 +1,56 @@
 import fm from "front-matter";
+import { convertKeyMapToObject, convertObjectToKeyMap } from "./walk.js";
+import { getConfigItem } from "../config.js";
+import { promiseRunner } from "./utils.js";
+
+/**
+ * @typedef {object} TransformedContent
+ * @property {object} attributes
+ * @property {string} body
+ */
 
 /**
  *
  * @param {string} content File Content
+ * @returns {TransformedContent}
  */
 export const transformContent = async (content) => {
   const { attributes, body } = fm(content);
+
+  return transformObject({
+    attributes: { ...attributes },
+    body,
+  });
 };
 
 /**
+ *  Walks through an object, converts any data that needs to be converted,
+ * then reconstructs the object in its new data format
  *
  * @param {object} object
- */
-export const transformObject = async (object) => {};
-
-/**
  *
- * @param {object} object
+ * @returns {TransformedContent}
  */
-export const convertObjectToMap = (object) => {
-  const createKey = (parts) => {
-    return parts.join(".");
-  };
+export const transformObject = async (object) => {
+  const keys = convertObjectToKeyMap(object);
 
-  const tree = {};
+  const matchers = getConfigItem("transform");
 
-  const walk = (objOrArrayOrValue, parentKeys = []) => {
-    // Check if value is array of object
-    if (typeof objOrArrayOrValue === "object") {
-      // If array iterate through
-      if (Array.isArray(objOrArrayOrValue)) {
-        objOrArrayOrValue.forEach((value, idx) => {
-          walk(value, [...parentKeys, idx]);
-        });
+  const convertedKeys = await promiseRunner(keys, async (item) => {
+    /** @type {import("../config.js").ConfigTransformMatch | null} */
+    const transform = matchers.match.find(({ pattern, testValue }) => {
+      const regex = new RegExp(pattern);
+      return regex.test(testValue ? item.value : item.key);
+    });
 
-        return;
-      }
-
-      // if Object create entries and iterate through
-      Object.entries(objOrArrayOrValue).forEach(([key, value]) => {
-        walk(value, [...parentKeys, key]);
-      });
-
-      return;
+    if (transform) {
+      item.value = await Promise.resolve().then(() =>
+        transform.handler(item.value, item.key)
+      );
     }
 
-    tree[createKey(parentKeys)] = objOrArrayOrValue;
-  };
+    return item;
+  });
 
-  walk(object);
-
-  return tree;
+  return convertKeyMapToObject(convertedKeys);
 };
