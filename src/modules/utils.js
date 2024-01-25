@@ -28,7 +28,7 @@ export const promiseRunner = (arr, cb) => {
 };
 
 export const log = (...messages) => {
-  if (!getConfigItem("silent", false)) {
+  if (getConfigItem("dev") && !getConfigItem("silent", false)) {
     console.log(...messages);
   }
 };

@@ -1,8 +1,11 @@
 // rollup.config.mjs
 export default {
-  input: "src/index.js",
+  input: {
+    main: "src/index.js",
+    vite: "src/vite.js",
+  },
   output: {
-    file: "dist/main.js",
+    dir: "dist",
     format: "es",
   },
 };

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { CONFIG_FILE_NAME } from "./constants.js";
+// import { CONFIG_FILE_NAME } from "./constants.js";
 import { mergeDeep, isObject } from "./modules/utils.js";
 import {
   transform as ImageTransform,
@@ -8,6 +8,7 @@ import {
 } from "./modules/transformers/Image.js";
 import { setValue, getValue } from "./modules/walk.js";
 import { mergician } from "mergician";
+import { CONFIG_FILE_NAME } from "./constants.js";
 
 /**
  * @typedef {(value: string | number | boolean, key: string) => any} ConfigTransformMatchHandler
@@ -43,16 +44,20 @@ import { mergician } from "mergician";
  * @returns {Promise<Config>}
  */
 const getConfig = async () => {
-  // Check to see if there is a config file
   const configFile = path.join(process.cwd(), CONFIG_FILE_NAME);
 
   // If a config file exists, load it, else mock the object for ease
   const { config: configOverride } = await (fs.existsSync(configFile)
-    ? import(configFile)
+    ? import(/* @vite-ignore */ configFile)
     : Promise.resolve({ config: {} }));
 
   // Pull known keys that need to be resolved, and allow the rest to be spread
   const { root, dev, ...restConfig } = configOverride;
+
+  // // putting these here for now
+  // const dev = false;
+  // const root = undefined;
+  // const restConfig = {};
 
   let _root = root;
 

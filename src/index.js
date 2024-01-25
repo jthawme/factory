@@ -1,6 +1,8 @@
 import { transformContent } from "./modules/data.js";
 import { loadFile } from "./modules/files.js";
 
+export { findFile, findFiles } from "./modules/files.js";
+
 /**
  *
  * @param {string} file

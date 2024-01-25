@@ -15,6 +15,8 @@ const DEFAULT_FALLBACK_SIZE = 768;
 const DEFAULT_PLACEHOLDER_SIZE = 10;
 const DEFAULT_PLACEHOLDER_QUALITY = 50;
 
+const DEFAULT_API_ENDPOINT = `/_image`;
+
 /**
  * @typedef {object} ImageError
  * @property {false} exists
@@ -27,30 +29,48 @@ const DEFAULT_PLACEHOLDER_QUALITY = 50;
  * @typedef {object} ImageObject
  * @property {string} fallback
  * @property {string} color
+ * @property {string} alt
+ * @property {string} title
  * @property {ImageObjectSource[]} sources
  * @property {ImageObjectSource[]} placeholders
  * @property {number} width
  * @property {number} height
  * @property {number} aspectRatio
+ *
+ * @typedef {object} SharpURLObject
+ * @property {() => Promise<{dominant: {r: number, g: number, b: number}}>} stats
+ * @property {() => Promise<{format: string, width: number, height: number}>} metadata
+ * @property {() => SharpURLObject} webp
+ * @property {() => SharpURLObject} toFormat
+ * @property {() => SharpURLObject} resize
+ * @property {true} url
  */
 
-// This pattern makes sure we are matching just this enclosed word, with spaces or start/end of line
-const enclosedPattern = (word, flags = "gim") =>
-  new RegExp(`(?<=(?:\\s|^))(${word})`, flags);
+const VALID_FILES = ".jpg|.png|.jpeg|.webp";
+const VALID_FILE_CHARS = "a-zA-Z0-9-._/";
 
 // Valid image matcher
-const imagePattern = /(.jpg|.png|.jpeg|.webp)$/;
+const imagePattern = new RegExp(`(${VALID_FILES})$`);
+
+// Checks to see if variable is entirely an image
+const fullVariableImagePattern = new RegExp(
+  `(^[${VALID_FILE_CHARS}]+(?:.${VALID_FILES})$)`
+);
 
 // This looks for an image like word
-const inlinePattern = /(?<=(?:\s|^))([a-z0-9-_/]+(?:.jpg|.png|.jpeg|.webp))/;
+const inlinePattern = new RegExp(
+  `(?<=(?:\\s|^))([${VALID_FILE_CHARS}]+(?:${VALID_FILES}))`
+);
 
 // This matches a markdown pattern for an image
-const markdownPattern =
-  /!\[.*\]\((?:\s)*([a-z0-9-_\/]+.(?:jpg|png|jpeg|webp)).*\)/;
+const markdownPattern = new RegExp(
+  `!\\[.*\\]\\((?:\\s)*([${VALID_FILE_CHARS}]+(?:${VALID_FILES})).*\\)`
+);
 
 // This captures the different regions of a markdown image
-const deconstructMarkdown =
-  /!\[(.*)\]\((?:\s)*([a-z0-9-_\/]+.(?:jpg|png|jpeg|webp))\s*(?:"(.*?)")?\)/;
+const deconstructMarkdown = new RegExp(
+  `!\\[(.*)\\]\\((?:\\s)*([${VALID_FILE_CHARS}]+(?:${VALID_FILES}))\\s*(?:"(.*?)")?\\)`
+);
 
 const getImageFormat = async (imageNode, passedFormat) => {
   if (passedFormat) {
@@ -63,9 +83,66 @@ const getImageFormat = async (imageNode, passedFormat) => {
 };
 
 /**
+ *
+ * @param {string} filePath
+ * @returns {SharpURLObject}
+ */
+const sharpURL = (filePath) => {
+  let image = filePath;
+  let node = sharp(filePath);
+
+  let format;
+  let width;
+  let options = {};
+
+  return {
+    url: true,
+
+    webp() {
+      format = "webp";
+      return this;
+    },
+    toFormat(_format, opts = {}) {
+      format = _format;
+      options = { ...options, ...opts };
+      return this;
+    },
+    resize(_width) {
+      width = _width;
+      return this;
+    },
+    metadata() {
+      return node.metadata();
+    },
+    stats() {
+      return node.stats();
+    },
+    toValue() {
+      return `${getConfigItem(
+        "modules.image.server.endpoint",
+        DEFAULT_API_ENDPOINT
+      )}${relativeFilePath(image)}?${new URLSearchParams(
+        Object.entries({
+          format,
+          width,
+          ...options,
+        })
+          .filter(([key, value]) => !!value)
+          .reduce((dict, [key, value]) => {
+            return {
+              ...dict,
+              [key]: value,
+            };
+          }, {})
+      ).toString()}`;
+    },
+  };
+};
+
+/**
  * Takes a sharp node, creates a hash of it and saves it out
  *
- * @param {sharp.Sharp} imageNode
+ * @param {sharp.Sharp | SharpURLObject} imageNode
  * @param {string} [passedFormat]
  * @returns {{
  *  file: string,
@@ -74,6 +151,12 @@ const getImageFormat = async (imageNode, passedFormat) => {
  * }}
  */
 const saveImage = async (imageNode, passedFormat) => {
+  if (!!imageNode?.url) {
+    return {
+      relativeFile: imageNode.toValue(),
+    };
+  }
+
   const distImages = getConfigItem("dist.images");
   const publicFilePathTransform = getConfigItem(
     "modules.image.publicFilePath",
@@ -138,9 +221,11 @@ const createSrcSet = async (imageNode, maxWidth, passedFormat) => {
 /**
  *
  * @param {string} imagePath
+ * @param {string} alt
+ * @param {string} title
  * @returns {ImageError | ImageObject}
  */
-export const transformImage = async (imagePath) => {
+export const transformImage = async (imagePath, alt, title) => {
   const file = await findFile(imagePath);
 
   if (!file || !imagePattern.test(file)) {
@@ -149,10 +234,9 @@ export const transformImage = async (imagePath) => {
     };
   }
 
-  const isDev = getConfigItem("dev");
   const distImages = getConfigItem("dist.images");
 
-  const rootImageNode = sharp(file);
+  const rootImageNode = getConfigItem("dev") ? sharpURL(file) : sharp(file);
   const { width, height, format } = await rootImageNode.metadata();
   const { dominant } = await rootImageNode.stats();
 
@@ -223,22 +307,30 @@ export const transformImage = async (imagePath) => {
     aspectRatio: height / width,
     width,
     height,
+    alt,
+    title,
   };
 };
 
-const convertImage = async (markdownImage) => {
-  const [_, alt, imagePath, title] = deconstructMarkdown.exec(markdownImage);
-
-  const image = await transformImage(imagePath);
-
+/**
+ *
+ * @param {ImageObject} image
+ * @returns {string}
+ */
+const convertImage = (image) => {
   const imageData = {
-    alt,
     ...image,
   };
 
-  return `![${JSON.stringify(imageData)}](${imagePath}${
-    title ? ` "${title}"` : ""
+  return `![${JSON.stringify(imageData)}](${image.fallback}${
+    image.title ? ` "${image.title}"` : ""
   })`;
+};
+
+const getImageFromMarkdown = (markdownImage) => {
+  const [_, alt, imagePath, title] = deconstructMarkdown.exec(markdownImage);
+
+  return [imagePath, alt, title];
 };
 
 const createMarker = (val) => {
@@ -254,11 +346,15 @@ export const transform = {
   async handler(value, key) {
     const images = [
       ...value.matchAll(
-        new RegExp(`${inlinePattern.source}|${markdownPattern.source}`, "gim")
+        new RegExp(`${markdownPattern.source}|${inlinePattern.source}`, "gim")
       ),
     ];
 
     if (images.length) {
+      if (fullVariableImagePattern.test(value)) {
+        return transformImage(images[0][0]);
+      }
+
       let text = value;
 
       const converted = await promiseRunner(images, async ([image], idx) => {
@@ -266,14 +362,14 @@ export const transform = {
         text = text.replace(image, createMarker(idx));
 
         if (new RegExp(inlinePattern, "i").test(image)) {
-          return convertImage(`![](${image})`);
+          return transformImage(image);
         } else {
-          return convertImage(image);
+          return transformImage(...getImageFromMarkdown(image));
         }
       });
 
       converted.forEach((image, idx) => {
-        text = text.replace(createMarker(idx), image);
+        text = text.replace(createMarker(idx), convertImage(image));
       });
 
       return text;
@@ -304,6 +400,10 @@ export const options = {
   placeholder: {
     size: DEFAULT_PLACEHOLDER_SIZE,
     quality: DEFAULT_PLACEHOLDER_QUALITY,
+  },
+
+  server: {
+    endpoint: DEFAULT_API_ENDPOINT,
   },
 };
 

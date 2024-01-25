@@ -23,23 +23,20 @@ test("valid image object returned from transformed image", async () => {
     expect.objectContaining({
       color: expect.any(String),
       fallback: expect.any(String),
-      // sources: expect.arrayContaining([
-      //   expect.objectContaining({
-      //     type: expect.any(String),
-      //     srcset: expect.any(String),
-      //     sizes: expect.any(String),
-      //   }),
-      // ]),
-      // placeholders: expect.arrayContaining([
-      //   expect.objectContaining({
-      //     type: expect.any(String),
-      //     srcset: expect.any(String),
-      //     sizes: expect.any(String),
-      //   }),
-      // ]),
+      sources: expect.any(Array),
+      placeholders: expect.any(Array),
       aspectRatio: expect.any(Number),
       width: expect.any(Number),
       height: expect.any(Number),
     })
   );
+});
+
+test("converts image when not dev", async () => {
+  setConfigItem("silent", true);
+  setConfigItem("dev", false);
+
+  const image = await transformImage("bort.jpg");
+
+  expect(image.fallback).not.toMatch(/\image-api/);
 }, 10000);

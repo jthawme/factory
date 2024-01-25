@@ -14,8 +14,13 @@
     "cms build tool",
     "static cms"
   ],
+  "exports": {
+    ".": "./dist/main.js",
+    "./vite": "./dist/vite.js"
+  },
   "dependencies": {
     "chroma-js": "^2.4.2",
+    "express": "^4.18.2",
     "front-matter": "^4.0.2",
     "fs-extra": "^11.2.0",
     "glob": "^10.3.10",
@@ -32,6 +37,8 @@
     "jest-cli": "^29.7.0"
   },
   "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c --watch",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "jest": {
