@@ -1,7 +1,6 @@
 import "./bootstrap.js";
 
-import { filePath } from "../src/config.js";
-import { loadFile } from "../src/modules/file.js";
+import { filePath, loadFile } from "../src/modules/files.js";
 import { run } from "../src/index.js";
 
 test("Loads content of file with no errors", async () => {

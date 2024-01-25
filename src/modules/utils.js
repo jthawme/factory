@@ -1,24 +1,12 @@
+import { mergician } from "mergician";
+import { getConfigItem } from "../config.js";
+
 export function isObject(item) {
   return item && typeof item === "object" && !Array.isArray(item);
 }
 
 export function mergeDeep(target, source) {
-  let output = Object.assign({}, target);
-  if (isObject(target) && isObject(source)) {
-    Object.keys(source).forEach((key) => {
-      if (isObject(source[key])) {
-        if (!(key in target)) Object.assign(output, { [key]: source[key] });
-        else output[key] = mergeDeep(target[key], source[key]);
-      } else {
-        if (Array.isArray(target[key])) {
-          Object.assign(output, { [key]: [...source[key], ...target[key]] });
-        } else {
-          Object.assign(output, { [key]: source[key] });
-        }
-      }
-    });
-  }
-  return output;
+  return mergician(target, source);
 }
 
 export const promiseRunner = (arr, cb) => {
@@ -37,4 +25,10 @@ export const promiseRunner = (arr, cb) => {
 
     run();
   });
+};
+
+export const log = (...messages) => {
+  if (!getConfigItem("silent", false)) {
+    console.log(...messages);
+  }
 };

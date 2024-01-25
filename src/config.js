@@ -2,7 +2,12 @@ import fs from "fs";
 import path from "path";
 import { CONFIG_FILE_NAME } from "./constants.js";
 import { mergeDeep, isObject } from "./modules/utils.js";
-import { transform as ImageTransform } from "./modules/transformers/Image.js";
+import {
+  transform as ImageTransform,
+  options as ImageModuleOptions,
+} from "./modules/transformers/Image.js";
+import { setValue, getValue } from "./modules/walk.js";
+import { mergician } from "mergician";
 
 /**
  * @typedef {(value: string | number | boolean, key: string) => any} ConfigTransformMatchHandler
@@ -15,10 +20,22 @@ import { transform as ImageTransform } from "./modules/transformers/Image.js";
  * @typedef {object} ConfigTransform
  * @property {ConfigTransformMatch[]} match
  *
+ * @typedef {object} ConfigSource
+ * @property {string} media
+ * @property {string} data
+ *
+ * @typedef {object} ConfigDist
+ * @property {string} images
+ * @property {string} files
+ *
  * @typedef {object} Config
  * @property {string} root The root of the project
  * @property {ConfigTransform} transform Defines many things to do with the transforming of data
  * @property {object} modules Any other data that should get attached arbitrarily to the config object
+ * @property {ConfigSource} source A dictionary of folders for the source
+ * @property {ConfigDist} dist A dictionary of folders for the dist
+ * @property {boolean} dev
+ * @property {boolean} silent
  */
 
 /**
@@ -35,14 +52,21 @@ const getConfig = async () => {
     : Promise.resolve({ config: {} }));
 
   // Pull known keys that need to be resolved, and allow the rest to be spread
-  const { root, ...restConfig } = configOverride;
+  const { root, dev, ...restConfig } = configOverride;
 
   let _root = root;
 
-  return {
-    /**
-     * The root location in which the transform mounts, to make any relative paths off of
-     */
+  const sourceFolders = {
+    media: "media",
+    data: "data",
+  };
+
+  const distFolders = {
+    images: "static/assets",
+    files: "static/assets",
+  };
+
+  const spread = {
     get root() {
       return !!_root ? path.resolve(process.cwd(), _root) : process.cwd();
     },
@@ -50,15 +74,57 @@ const getConfig = async () => {
     set root(val) {
       _root = val;
     },
+  };
+
+  return mergician(spread, {
+    dev: dev ?? process.env.NODE_ENV !== "production",
+
+    silent: false,
+
+    source: {
+      get media() {
+        return path.resolve(spread.root, sourceFolders.media);
+      },
+
+      set media(val) {
+        sourceFolders.media = val;
+      },
+
+      get data() {
+        return path.resolve(spread.root, sourceFolders.data);
+      },
+
+      set data(val) {
+        sourceFolders.data = val;
+      },
+    },
+
+    dist: {
+      get images() {
+        return path.resolve(spread.root, distFolders.images);
+      },
+
+      set images(val) {
+        distFolders.images = val;
+      },
+
+      get files() {
+        return path.resolve(spread.root, distFolders.files);
+      },
+
+      set files(val) {
+        distFolders.files = val;
+      },
+    },
 
     transform: {
       match: [ImageTransform],
     },
 
-    modules: {
-      ...restConfig,
-    },
-  };
+    modules: mergeDeep(restConfig, {
+      image: ImageModuleOptions,
+    }),
+  });
 };
 
 export const resetConfig = async () => {
@@ -67,7 +133,7 @@ export const resetConfig = async () => {
 
 /**
  *
- * @param {Partial<config>} additionalConfig
+ * @param {Partial<Config>} additionalConfig
  */
 export const setConfig = (additionalConfig) => {
   con.fig = mergeDeep(con.fig, additionalConfig);
@@ -77,30 +143,32 @@ export const setConfig = (additionalConfig) => {
 
 /**
  *
- * @param {keyof config} key
+ * @param {keyof Config} key
  * @param {any} value
  * @param {boolean} [merge]
  */
 export const setConfigItem = (key, value, merge = true) => {
-  con.fig[key] =
-    isObject(con.fig[key]) && merge ? mergeDeep(con.fig[key], value) : value;
+  const currentValue = getValue(con.fig, key);
+
+  setValue(
+    con.fig,
+    key,
+    isObject(currentValue) && merge ? mergeDeep(currentValue, value) : value
+  );
+};
+
+export const pushConfigItem = (key, value) => {
+  setValue(con.fig, key, [...(getValue(con.fig, key) ?? []), value]);
 };
 
 /**
  * Gets an item from the config object
  *
- * @param {keyof config} key
+ * @param {keyof Config} key
+ * @param {any} [defaultValue]
  */
-export const getConfigItem = (key) => {
-  return con.fig[key];
-};
-
-/**
- *
- * @param {string} pathname The relative file path
- */
-export const filePath = (pathname) => {
-  return path.resolve(getConfigItem("root"), pathname);
+export const getConfigItem = (key, defaultValue = null) => {
+  return getValue(con.fig, key) ?? defaultValue;
 };
 
 export const con = {

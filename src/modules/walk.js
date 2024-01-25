@@ -87,26 +87,57 @@ export const convertObjectToKeyMap = (object) => {
 };
 
 /**
+ * Mutably sets a key on an object with potential dot notation syntax
+ *
+ * @param {object} obj The object to set onto
+ * @param {string} key The key with possible not dotation baked in
+ * @param {any} value The value to set
+ */
+export const setValue = (obj, key, value) => {
+  const depths = key.split(".");
+
+  // Dont spread as we are navigating through reference
+  let traverse = obj;
+
+  depths.forEach((key, i) => {
+    if (i === depths.length - 1) {
+      traverse[key] = value.hasOwnProperty("isWalkObject")
+        ? value.value
+        : value;
+    } else {
+      traverse[key] = traverse[key] || {};
+      traverse = traverse[key];
+    }
+  });
+};
+
+/**
+ * Gets a key on an object with potential dot notation syntax
+ *
+ * @param {object} obj The object to set onto
+ * @param {string} key The key with possible not dotation baked in
+ */
+export const getValue = (obj, key) => {
+  const depths = key.split(".");
+
+  return depths.reduce((traverse, key, i) => {
+    if (i === depths.length - 1) {
+      const value = traverse[key];
+
+      return value.hasOwnProperty("isWalkObject") ? value.value : value;
+    } else {
+      return traverse[key];
+    }
+  }, obj);
+};
+
+/**
  *
  * @param {WalkObject[]} map
  */
 export const convertKeyMapToObject = (map) => {
   const obj = map.reduce((dict, { key, value }) => {
-    const depths = key.split(".");
-
-    // Dont spread as we are navigating through reference
-    let traverse = dict;
-
-    depths.forEach((key, i, arr) => {
-      if (i === depths.length - 1) {
-        traverse[key] = value.hasOwnProperty("isWalkObject")
-          ? value.value
-          : value;
-      } else {
-        traverse[key] = traverse[key] || {};
-        traverse = traverse[key];
-      }
-    });
+    setValue(dict, key, value);
 
     return dict;
   }, {});

@@ -1,5 +1,5 @@
 import { transformContent } from "./modules/data.js";
-import { loadFile } from "./modules/file.js";
+import { loadFile } from "./modules/files.js";
 
 /**
  *

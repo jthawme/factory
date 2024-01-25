@@ -65,8 +65,6 @@ test("Allow arbitrary conversion of attributes via config", async () => {
     },
   });
 
-  console.log(con.fig.transform);
-
   const data = await transformContent(`---
 test: 1
 ---

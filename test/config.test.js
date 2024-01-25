@@ -1,5 +1,5 @@
 import "./bootstrap.js";
-import { con, resetConfig, setConfigItem } from "../src/config.js";
+import { con, resetConfig, setConfig, setConfigItem } from "../src/config.js";
 
 beforeEach(() => {
   return resetConfig();
