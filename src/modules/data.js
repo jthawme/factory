@@ -38,10 +38,20 @@ export const transformObject = async (object) => {
 
   const convertedKeys = await promiseRunner(keys, async (item) => {
     /** @type {import("../config.js").ConfigTransformMatch | null} */
-    const transform = matchers.match.find(({ pattern, testValue }) => {
-      const regex = new RegExp(pattern);
-      return regex.test(testValue ? item.value : item.key);
-    });
+    const transform = matchers.match.find(
+      ({ keys: matchKeys, pattern, testValue }) => {
+        if (!matchKeys && !pattern) {
+          return false;
+        }
+
+        if (pattern) {
+          const regex = new RegExp(pattern);
+          return regex.test(testValue ? item.value : item.key);
+        }
+
+        return matchKeys.includes(item.key);
+      }
+    );
 
     if (transform) {
       item.value = await Promise.resolve().then(() =>

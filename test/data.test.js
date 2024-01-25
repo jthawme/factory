@@ -74,6 +74,27 @@ We will take the value of 'test' and add 1 to it`);
   expect(data.attributes.test).toBe(2);
 });
 
+test("Allow transformer to run on explicit key", async () => {
+  setConfig({
+    transform: {
+      match: [
+        {
+          keys: ["attributes.test"],
+          handler: (val) => val + 1,
+        },
+      ],
+    },
+  });
+
+  const data = await transformContent(`---
+test: 1
+---
+
+We will take the value of 'test' and add 1 to it`);
+
+  expect(data.attributes.test).toBe(2);
+});
+
 test("Grabs media to handle from within values", async () => {
   const data = await transformContent(
     `Body with an image.jpg that we want to grab automatically and also convert an already valid markdown image 

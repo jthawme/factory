@@ -6,7 +6,7 @@
   "author": "Jonny Thaw <hi@jthaw.me>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jthawme/factory.git"
+    "url": "git+https://github.com/jthawme/factory.git"
   },
   "keywords": [
     "markdown",
@@ -39,7 +39,10 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c --watch",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "release": "npm run build && npm version patch --force && npm publish",
+    "release:minor": "npm run build && npm version minor --force && npm publish",
+    "release:major": "npm run build && npm version major --force && npm publish"
   },
   "jest": {
     "transform": {}

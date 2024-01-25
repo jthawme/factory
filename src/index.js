@@ -3,6 +3,9 @@ import { loadFile } from "./modules/files.js";
 
 export { findFile, findFiles } from "./modules/files.js";
 
+export * as ImageTransform from "./modules/transformers/Image.js";
+// export * as ImageTransform from "./modules/transformers/Image.js";
+
 /**
  *
  * @param {string} file

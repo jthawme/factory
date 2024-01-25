@@ -231,6 +231,9 @@ export const transformImage = async (imagePath, alt, title) => {
   if (!file || !imagePattern.test(file)) {
     return {
       exists: false,
+      fallback: imagePath,
+      alt,
+      title,
     };
   }
 

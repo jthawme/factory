@@ -2,10 +2,7 @@ import fs from "fs";
 import path from "path";
 // import { CONFIG_FILE_NAME } from "./constants.js";
 import { mergeDeep, isObject } from "./modules/utils.js";
-import {
-  transform as ImageTransform,
-  options as ImageModuleOptions,
-} from "./modules/transformers/Image.js";
+import * as Image from "./modules/transformers/Image.js";
 import { setValue, getValue } from "./modules/walk.js";
 import { mergician } from "mergician";
 import { CONFIG_FILE_NAME } from "./constants.js";
@@ -14,7 +11,8 @@ import { CONFIG_FILE_NAME } from "./constants.js";
  * @typedef {(value: string | number | boolean, key: string) => any} ConfigTransformMatchHandler
  *
  * @typedef {object} ConfigTransformMatch
- * @property {RegExp} pattern The pattern to test the key or value, to determine whether to transform this or not
+ * @property {string[]} [keys] Explicit keys to match to run this transformer on
+ * @property {RegExp} [pattern] The pattern to test the key or value, to determine whether to transform this or not
  * @property {ConfigTransformMatchHandler} handler The callback to run if matched
  * @property {boolean} [testValue] Whether to test the value of the item or the key (default)
  *
@@ -123,11 +121,11 @@ const getConfig = async () => {
     },
 
     transform: {
-      match: [ImageTransform],
+      match: [Image.transform],
     },
 
     modules: mergeDeep(restConfig, {
-      image: ImageModuleOptions,
+      image: Image.options,
     }),
   });
 };
