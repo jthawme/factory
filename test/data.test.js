@@ -102,6 +102,8 @@ test("Grabs media to handle from within values", async () => {
 ![The San Juan Mountains are beautiful!](/assets/images/san-juan-mountains.jpg \"San Juan Mountains\")`
   );
 
+  console.log(data.body);
+
   expect(
     [...data.body.matchAll(/!\[.*\]\((.*.(jpg|png|jpeg|webp)).*\)/gim)].length
   ).toBe(2);

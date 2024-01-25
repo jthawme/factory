@@ -344,6 +344,7 @@ const createMarker = (val) => {
  * @type {import("../../config.js").ConfigTransformMatch}
  */
 export const transform = {
+  id: "image-transform",
   pattern: /(.jpg|.png|.jpeg|.webp)/gim,
   testValue: true,
   async handler(value, key) {

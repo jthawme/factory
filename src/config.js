@@ -1,20 +1,22 @@
 import fs from "fs";
 import path from "path";
 // import { CONFIG_FILE_NAME } from "./constants.js";
-import { mergeDeep, isObject } from "./modules/utils.js";
+import { mergeDeep, isObject, log } from "./modules/utils.js";
 import * as Image from "./modules/transformers/Image.js";
 import { setValue, getValue } from "./modules/walk.js";
 import { mergician } from "mergician";
 import { CONFIG_FILE_NAME } from "./constants.js";
 
 /**
- * @typedef {(value: string | number | boolean, key: string) => any} ConfigTransformMatchHandler
+ * @typedef {(value: string | number | boolean, key: string, {depth: number}) => any} ConfigTransformMatchHandler
  *
  * @typedef {object} ConfigTransformMatch
- * @property {string[]} [keys] Explicit keys to match to run this transformer on
+ * @property {string} id The id of the transform module
+ * @property {string[] | () => string[]} [keys] Explicit keys to match to run this transformer on
  * @property {RegExp} [pattern] The pattern to test the key or value, to determine whether to transform this or not
  * @property {ConfigTransformMatchHandler} handler The callback to run if matched
  * @property {boolean} [testValue] Whether to test the value of the item or the key (default)
+ * @property {number} [depth] How many files down of transformation this module should run on
  *
  * @typedef {object} ConfigTransform
  * @property {ConfigTransformMatch[]} match
@@ -162,6 +164,20 @@ export const setConfigItem = (key, value, merge = true) => {
 
 export const pushConfigItem = (key, value) => {
   setValue(con.fig, key, [...(getValue(con.fig, key) ?? []), value]);
+};
+
+export const setTransformConfig = (moduleId, config, merge = true) => {
+  const transforms = getConfigItem("transform");
+  const transformRuleIndex = transforms.findIndex(
+    (module) => module.id === moduleId
+  );
+
+  if (transformRuleIndex < 0) {
+    log(`No module named '${moduleId}'`);
+    return;
+  }
+
+  setConfigItem(`transform.${transformRuleIndex}`, config, merge);
 };
 
 /**

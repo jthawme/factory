@@ -13,9 +13,34 @@ A module to convert static markdown files into a json consumable useful format. 
 - Support a dev mode that spins up a server to serve IFS paths ✅
 - Utility function to find all data files for route manifest ❌
 - Caching for aiding image conversion ❌
-- marked plugin for decomposing image in markdown ❌
+- Marked plugin for decomposing image in markdown ❌
+- An exported relational transform module, for running transforms on related markdown files ✅
 
 ### Further
 
 - Video first frame module ❌
 - Animated image module ❌
+
+## Installation
+
+[![https://nodei.co/npm/jt-factory.png?downloads=true&downloadRank=true&stars=true](https://nodei.co/npm/jt-factory.png?downloads=true&downloadRank=true&stars=true)](https://www.npmjs.com/package/jt-factory)
+
+```
+npm i jt-factory
+```
+
+## Vite Plugin
+
+This will let the images be served much quicker through the vite server, so you dont have to sit around for the images to be built
+
+```
+import { TransformServer } from 'jt-factory/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+	plugins: [
+    TransformServer()
+  ]
+});
+
+```

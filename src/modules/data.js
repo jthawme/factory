@@ -12,15 +12,19 @@ import { promiseRunner } from "./utils.js";
 /**
  *
  * @param {string} content File Content
+ * @param {number} [depth]
  * @returns {TransformedContent}
  */
-export const transformContent = async (content) => {
+export const transformContent = async (content, depth) => {
   const { attributes, body } = fm(content);
 
-  return transformObject({
-    attributes: { ...attributes },
-    body,
-  });
+  return transformObject(
+    {
+      attributes: { ...attributes },
+      body,
+    },
+    depth
+  );
 };
 
 /**
@@ -28,10 +32,11 @@ export const transformContent = async (content) => {
  * then reconstructs the object in its new data format
  *
  * @param {object} object
+ * @param {number} [depth]
  *
  * @returns {TransformedContent}
  */
-export const transformObject = async (object) => {
+export const transformObject = async (object, depth = 0) => {
   const keys = convertObjectToKeyMap(object);
 
   const matchers = getConfigItem("transform");
@@ -39,9 +44,9 @@ export const transformObject = async (object) => {
   const convertedKeys = await promiseRunner(keys, async (item) => {
     /** @type {import("../config.js").ConfigTransformMatch | null} */
     const transform = matchers.match.find(
-      ({ keys: matchKeys, pattern, testValue }) => {
-        if (!matchKeys && !pattern) {
-          return false;
+      ({ keys: matchKeys, pattern, testValue, depth: depthCheck }) => {
+        if (depthCheck < depth) {
+          return;
         }
 
         if (pattern) {
@@ -49,13 +54,21 @@ export const transformObject = async (object) => {
           return regex.test(testValue ? item.value : item.key);
         }
 
-        return matchKeys.includes(item.key);
+        if (Array.isArray(matchKeys)) {
+          return matchKeys.includes(item.key);
+        }
+
+        if (typeof matchKeys === "function") {
+          return matchKeys().includes(item.key);
+        }
+
+        return false;
       }
     );
 
     if (transform) {
       item.value = await Promise.resolve().then(() =>
-        transform.handler(item.value, item.key)
+        transform.handler(item.value, item.key, { depth })
       );
     }
 
