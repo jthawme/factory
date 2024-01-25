@@ -2,8 +2,10 @@ import fm from "front-matter";
 import { convertKeyMapToObject, convertObjectToKeyMap } from "./walk.js";
 import { getConfigItem } from "../config.js";
 import { promiseRunner } from "./utils.js";
+import { fileMeta } from "./files.js";
 
 /**
+ *
  * @typedef {object} TransformedContent
  * @property {object} attributes
  * @property {string} body

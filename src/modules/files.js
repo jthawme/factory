@@ -73,3 +73,15 @@ export const ensureDir = (filePath) => {
 export const loadFile = (filePath) => {
   return fs.readFile(filePath, "utf-8");
 };
+
+export const fileMeta = (file) => {
+  const base = file.replace(getConfigItem("source.data"), "");
+
+  const extName = path.extname(file);
+
+  return {
+    slug: base.replace(new RegExp(`${extName}$`), ""),
+    fileName: path.basename(file),
+    extName,
+  };
+};

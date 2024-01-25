@@ -29,6 +29,7 @@ Relational test`);
   expect(data.attributes.related).toEqual(
     expect.objectContaining({
       attributes: expect.any(Object),
+      meta: expect.any(Object),
       body: expect.any(String),
     })
   );
