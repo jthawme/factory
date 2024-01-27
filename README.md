@@ -11,7 +11,7 @@ A module to convert static markdown files into a json consumable useful format. 
 - Extract colour points from image ✅
 - Support property transform handling (to allow for things like relationship lookups) ✅
 - Support a dev mode that spins up a server to serve IFS paths ✅
-- Utility function to find all data files for route manifest ❌
+- Utility function to find all data files for route manifest ✅
 - Caching for aiding image conversion ❌
 - Marked plugin for decomposing image in markdown ❌
 - An exported relational transform module, for running transforms on related markdown files ✅

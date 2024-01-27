@@ -1,5 +1,3 @@
-import fs from "fs-extra";
-import path from "path";
 import sharp from "sharp";
 import chroma from "chroma-js";
 import * as hasha from "hasha";

@@ -101,7 +101,7 @@ export const setValue = (obj, key, value) => {
 
   depths.forEach((key, i) => {
     if (i === depths.length - 1) {
-      traverse[key] = value.hasOwnProperty("isWalkObject")
+      traverse[key] = value?.hasOwnProperty("isWalkObject")
         ? value.value
         : value;
     } else {
@@ -120,13 +120,13 @@ export const setValue = (obj, key, value) => {
 export const getValue = (obj, key) => {
   const depths = key.split(".");
 
-  return depths.reduce((traverse, key, i) => {
+  return depths.reduce((traverse, k, i) => {
     if (i === depths.length - 1) {
-      const value = traverse[key];
+      const value = traverse[k];
 
-      return value.hasOwnProperty("isWalkObject") ? value.value : value;
+      return value?.hasOwnProperty("isWalkObject") ? value.value : value;
     } else {
-      return traverse[key];
+      return traverse[k];
     }
   }, obj);
 };

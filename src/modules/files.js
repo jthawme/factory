@@ -2,6 +2,7 @@ import * as path from "path";
 import { glob } from "glob";
 import { getConfigItem } from "../config.js";
 import fs from "fs-extra";
+import { slugify } from "./utils.js";
 
 /**
  *
@@ -79,8 +80,10 @@ export const fileMeta = (file) => {
 
   const extName = path.extname(file);
 
+  const baseSlug = slugify(base.replace(new RegExp(`${extName}$`), ""));
+
   return {
-    slug: base.replace(new RegExp(`${extName}$`), ""),
+    slug: getConfigItem("slugify", () => baseSlug)(file),
     fileName: path.basename(file),
     extName,
   };

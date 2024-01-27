@@ -7,6 +7,8 @@ export { setTransformConfig } from "./config.js";
 export * as ImageTransform from "./modules/transformers/Image.js";
 // export * as ImageTransform from "./modules/transformers/Image.js";
 
+export { getManifest } from "./modules/manifest.js";
+
 /**
  *
  * @typedef {object} FileMeta
@@ -14,12 +16,14 @@ export * as ImageTransform from "./modules/transformers/Image.js";
  * @property {string} fileName
  * @property {string} extName
  *
+ * @typedef {import("./modules/data.js").TransformedContent & {
+ *  meta: FileMeta
+ * }} FileContent
+ *
+ *
  * @param {string} file
  * @param {number} [depth]
- *
- * @returns {Promise<import("./modules/data.js").TransformedContent & {
- *  meta: FileMeta
- * }>}
+ * @returns {Promise<>}
  */
 export const run = async (file, depth) => {
   const fileContent = await loadFile(file);
