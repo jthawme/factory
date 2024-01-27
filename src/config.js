@@ -37,7 +37,7 @@ import { CONFIG_FILE_NAME } from "./constants.js";
  * @property {ConfigDist} dist A dictionary of folders for the dist
  * @property {boolean} dev
  * @property {boolean} silent
- * @property {(file: string) => string} slugify
+ * @property {(file: string, { slugify: (value: string) => string }) => string} slugify
  */
 
 /**

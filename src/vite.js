@@ -9,7 +9,9 @@ const init = (opts = {}) => {
   app.get(
     `${getConfigItem("modules.image.server.endpoint", "/_image")}/*`,
     async (req, res) => {
-      const file = await findFile(req.params[0]);
+      const file = await findFile(req.params[0], [], [getConfigItem("root")]);
+
+      console.log("GRABBING", req.params[0], file);
 
       try {
         let s = sharp(file);

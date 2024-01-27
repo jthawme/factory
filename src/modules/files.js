@@ -40,7 +40,6 @@ export const findFiles = (
   baseLookup = [
     `${getConfigItem("source.media")}/**`,
     `${getConfigItem("source.data")}/**`,
-    getConfigItem("root"),
   ]
 ) => {
   return glob(
@@ -76,14 +75,16 @@ export const loadFile = (filePath) => {
 };
 
 export const fileMeta = (file) => {
-  const base = file.replace(getConfigItem("source.data"), "");
+  const base = file
+    .replace(getConfigItem("source.data"), "")
+    .replace(getConfigItem("root"), "");
 
   const extName = path.extname(file);
 
-  const baseSlug = slugify(base.replace(new RegExp(`${extName}$`), ""));
+  const baseSlug = base.replace(new RegExp(`${extName}$`), "");
 
   return {
-    slug: getConfigItem("slugify", () => baseSlug)(file),
+    slug: getConfigItem("slugify", () => baseSlug)(file, { slugify }),
     fileName: path.basename(file),
     extName,
   };

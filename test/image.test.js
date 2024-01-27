@@ -24,7 +24,10 @@ test("valid image object returned from transformed image", async () => {
       color: expect.any(String),
       fallback: expect.any(String),
       sources: expect.any(Array),
-      placeholders: expect.any(Array),
+      placeholder: expect.objectContaining({
+        src: expect.any(String),
+        sources: expect.any(Array),
+      }),
       aspectRatio: expect.any(Number),
       width: expect.any(Number),
       height: expect.any(Number),

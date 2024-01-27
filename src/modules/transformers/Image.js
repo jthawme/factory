@@ -2,6 +2,7 @@ import sharp from "sharp";
 import chroma from "chroma-js";
 import * as hasha from "hasha";
 import mimeTypes from "mime-types";
+import path from "path";
 
 import { log, promiseRunner } from "../utils.js";
 import { ensureDir, filePath, findFile, relativeFilePath } from "../files.js";
@@ -15,12 +16,41 @@ const DEFAULT_PLACEHOLDER_QUALITY = 50;
 
 const DEFAULT_API_ENDPOINT = `/_image`;
 
+const DEFAULT_OPTIONS = {
+  publicPath: "/assets",
+
+  publicFilePath: (file) => {
+    const distImagesFolder = getConfigItem("dist.images");
+
+    return file.startsWith(distImagesFolder)
+      ? file.replace(distImagesFolder, getConfigItem("publicPath"))
+      : file;
+  },
+
+  fallbackSize: DEFAULT_FALLBACK_SIZE,
+
+  sizes: DEFAULT_SIZES,
+
+  placeholder: {
+    size: DEFAULT_PLACEHOLDER_SIZE,
+    quality: DEFAULT_PLACEHOLDER_QUALITY,
+  },
+
+  criticalFilesPrefix: `c`,
+  otherFilesPrefix: `_`,
+
+  server: {
+    endpoint: DEFAULT_API_ENDPOINT,
+  },
+};
+
 /**
  * @typedef {object} ImageError
  * @property {false} exists
  *
  * @typedef {object} ImageObjectSource
- * @property {string} srcset
+ * @property {string} [src]
+ * @property {string} [srcset]
  * @property {string} type
  * @property {string} sizes
  *
@@ -70,6 +100,8 @@ const deconstructMarkdown = new RegExp(
   `!\\[(.*)\\]\\((?:\\s)*([${VALID_FILE_CHARS}]+(?:${VALID_FILES}))\\s*(?:"(.*?)")?\\)`
 );
 
+const getImageConfig = (key) => getConfigItem(`modules.image.${key}`);
+
 const getImageFormat = async (imageNode, passedFormat) => {
   if (passedFormat) {
     return Promise.resolve(passedFormat);
@@ -96,6 +128,9 @@ const sharpURL = (filePath) => {
   return {
     url: true,
 
+    clone() {
+      return this;
+    },
     webp() {
       format = "webp";
       return this;
@@ -116,8 +151,8 @@ const sharpURL = (filePath) => {
       return node.stats();
     },
     toValue() {
-      return `${getConfigItem(
-        "modules.image.server.endpoint",
+      return `${getImageConfig(
+        "server.endpoint",
         DEFAULT_API_ENDPOINT
       )}${relativeFilePath(image)}?${new URLSearchParams(
         Object.entries({
@@ -148,7 +183,10 @@ const sharpURL = (filePath) => {
  *  relativeFile: string,
  * }}
  */
-const saveImage = async (imageNode, passedFormat) => {
+const saveImage = async (
+  imageNode,
+  { format: passedFormat, critical = false } = {}
+) => {
   if (!!imageNode?.url) {
     return {
       relativeFile: imageNode.toValue(),
@@ -156,8 +194,8 @@ const saveImage = async (imageNode, passedFormat) => {
   }
 
   const distImages = getConfigItem("dist.images");
-  const publicFilePathTransform = getConfigItem(
-    "modules.image.publicFilePath",
+  const publicFilePathTransform = getImageConfig(
+    "publicFilePath",
     (val) => val
   );
 
@@ -171,8 +209,17 @@ const saveImage = async (imageNode, passedFormat) => {
   const mime = mimeTypes.lookup(format);
   const extension = mimeTypes.extension(mime);
   const targetFile = [hash, extension].join(".");
-  const absoluteFile = filePath(targetFile, distImages);
+  const absoluteFile = filePath(
+    [
+      critical
+        ? getImageConfig("criticalFilesPrefix")
+        : getImageConfig("otherFilesPrefix"),
+      targetFile,
+    ].join("/"),
+    distImages
+  );
 
+  await ensureDir(path.dirname(absoluteFile));
   await imageNode.toFile(absoluteFile);
   log(`✅ Saved ${targetFile}`);
 
@@ -189,30 +236,64 @@ const saveImage = async (imageNode, passedFormat) => {
  * @param {sharp.Sharp} imageNode
  * @param {number} maxWidth,
  * @param {string} passedFormat
+ * @param {boolean} critical
  * @returns {ImageObjectSource}
  */
-const createSrcSet = async (imageNode, maxWidth, passedFormat) => {
-  const sizes = getConfigItem("modules.image.sizes", DEFAULT_SIZES).filter(
+const createSrcSet = async (
+  imageNode,
+  maxWidth,
+  passedFormat,
+  critical = false
+) => {
+  const sizes = getImageConfig("sizes", DEFAULT_SIZES).filter(
     (size) => size < maxWidth
   );
+
+  if (sizes.length === 0) {
+    sizes.push(maxWidth);
+  }
 
   const format = await getImageFormat(imageNode, passedFormat);
   const mime = mimeTypes.lookup(format);
 
   log(`Creating src set: ${sizes.length} sizes`);
   const images = await promiseRunner(sizes, async (size, idx, arr) => {
-    return saveImage(imageNode.resize(size), format);
+    return saveImage(imageNode.resize(size), { format, critical });
   });
 
   return {
-    srcset: images.map(
-      ({ relativeFile }, idx) => `${relativeFile} ${sizes[idx]}w`
-    ),
+    srcset: images
+      .map(({ relativeFile }, idx, arr) =>
+        idx === arr.length - 1 ? relativeFile : `${relativeFile} ${sizes[idx]}w`
+      )
+      .join(", "),
     type: mime,
     sizes: [
-      ...sizes.map((size) => `(max-width: ${size}px) 100vw`),
+      ...sizes
+        // .slice(0, sizes.length - 1)
+        .map((size) => `(max-width: ${size}px) 100vw`),
       "100vw",
     ].join(", "),
+  };
+};
+
+/**
+ * Takes a sharp node, creates a file and source object
+ *
+ * @param {sharp.Sharp} imageNode
+ * @param {string} passedFormat
+ * @param {boolean} critical
+ * @returns {ImageObjectSource}
+ */
+const createSrc = async (imageNode, passedFormat, critical = false) => {
+  const format = await getImageFormat(imageNode, passedFormat);
+  const mime = mimeTypes.lookup(format);
+
+  const image = await saveImage(imageNode, { format, critical });
+
+  return {
+    src: image.relativeFile,
+    type: mime,
   };
 };
 
@@ -238,20 +319,26 @@ export const transformImage = async (imagePath, alt, title) => {
   const distImages = getConfigItem("dist.images");
 
   const rootImageNode = getConfigItem("dev") ? sharpURL(file) : sharp(file);
+  rootImageNode;
+  const placeholderImageNode = rootImageNode
+    .clone()
+    .resize(
+      getImageConfig("placeholder.size", DEFAULT_OPTIONS.placeholder.size)
+    );
   const { width, height, format } = await rootImageNode.metadata();
   const { dominant } = await rootImageNode.stats();
 
   await ensureDir(distImages);
 
   log(
-    `Creating fallback at size ${getConfigItem(
-      "modules.image.fallbackSize",
-      DEFAULT_FALLBACK_SIZE
+    `Creating fallback at size ${getImageConfig(
+      "fallbackSize",
+      DEFAULT_OPTIONS.fallbackSize
     )}`
   );
   const { relativeFile: fallback } = await saveImage(
     rootImageNode.resize(
-      getConfigItem("modules.image.fallbackSize", DEFAULT_FALLBACK_SIZE)
+      getImageConfig("fallbackSize", DEFAULT_OPTIONS.fallbackSize)
     )
   );
 
@@ -262,40 +349,31 @@ export const transformImage = async (imagePath, alt, title) => {
       : Promise.resolve(false),
   ]);
 
+  const imageOpts = {
+    quality: getImageConfig(
+      "placeholder.quality",
+      DEFAULT_OPTIONS.placeholder.quality
+    ),
+  };
+
+  const placeholderSize = getImageConfig(
+    "placeholder.size",
+    DEFAULT_OPTIONS.placeholder.size
+  );
+
   const placeholders = await Promise.all([
-    createSrcSet(
-      rootImageNode
-        .resize(
-          getConfigItem(
-            "modules.image.placeholder.size",
-            DEFAULT_PLACEHOLDER_SIZE
-          )
-        )
-        .webp({
-          quality: getConfigItem(
-            "modules.image.placeholder.quality",
-            DEFAULT_PLACEHOLDER_QUALITY
-          ),
-        }),
-      width,
-      "webp"
+    createSrc(
+      placeholderImageNode.webp(imageOpts).resize(placeholderSize),
+      "webp",
+      true
     ),
     format !== "webp"
-      ? createSrcSet(
-          rootImageNode
-            .resize(
-              getConfigItem(
-                "modules.image.placeholder.size",
-                DEFAULT_PLACEHOLDER_SIZE
-              )
-            )
-            .toFormat(format, {
-              quality: getConfigItem(
-                "modules.image.placeholder.quality",
-                DEFAULT_PLACEHOLDER_QUALITY
-              ),
-            }),
-          width
+      ? createSrc(
+          placeholderImageNode
+            .toFormat(format, imageOpts)
+            .resize(placeholderSize),
+          format,
+          true
         )
       : Promise.resolve(false),
   ]);
@@ -303,7 +381,10 @@ export const transformImage = async (imagePath, alt, title) => {
   return {
     fallback,
     sources,
-    placeholders,
+    placeholder: {
+      sources: placeholders,
+      src: placeholders.at(-1).src,
+    },
     color: chroma(dominant).hex(),
     aspectRatio: height / width,
     width,
@@ -382,41 +463,5 @@ export const transform = {
 };
 
 export const options = {
-  publicPath: "/assets",
-
-  publicFilePath: (file) => {
-    const distImagesFolder = getConfigItem("dist.images");
-
-    return file.startsWith(distImagesFolder)
-      ? file.replace(
-          distImagesFolder,
-          getConfigItem("modules.image.publicPath")
-        )
-      : file;
-  },
-
-  fallbackSize: DEFAULT_FALLBACK_SIZE,
-
-  sizes: DEFAULT_SIZES,
-
-  placeholder: {
-    size: DEFAULT_PLACEHOLDER_SIZE,
-    quality: DEFAULT_PLACEHOLDER_QUALITY,
-  },
-
-  server: {
-    endpoint: DEFAULT_API_ENDPOINT,
-  },
+  ...DEFAULT_OPTIONS,
 };
-
-{
-  /* <picture>
-  <source
-    srcset="/_nuxt/image/6f79034f4c5cfb5ea12abc687a82a3bb.webp 320w, /_nuxt/image/79469289589e2b1a5e6e2f0506e3b304.webp 640w, /_nuxt/image/26c98947fcc1f13df6d201647d7d2220.webp 768w, /_nuxt/image/5c3af8a0fb33ebc3349d42e0513339fb.webp 1024w, /_nuxt/image/bb897d1c21605629cbc0a90285ca87c2.webp 1280w, /_nuxt/image/b82d2f229b637e20d35a68f3fbff0f54.webp 2400w"
-    sizes="(max-width: 320px) 100vw, (max-width: 640px) 100vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, (max-width: 1280px) 100vw, 100vw"
-    type="image/webp">
-
-  <source srcset="/_nuxt/image/2dfa72ec04a1e5609303277b6d3c9e35.webp 320w, /_nuxt/image/7f9dfa76b50602725547204e2e6aab48.webp 640w, /_nuxt/image/dcf4188a6fba4fc6e49dda34b0c0ecab.webp 768w, /_nuxt/image/52f929f963717d0a0a5df5cf07d92da9.webp 1024w, /_nuxt/image/6dac176505bfa80e96b6caa44f41a033.webp 1280w, /_nuxt/image/0e98e3323a84e4df88fbdf00b5a5188a.webp 2400w" sizes="(max-width: 320px) 100vw, (max-width: 640px) 100vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, (max-width: 1280px) 100vw, 100vw" type="image/webp">
-  <img src="/_nuxt/image/03b4b2e0eb4c55d318f5a9001d3724a0.png" alt="">
-</picture> */
-}
