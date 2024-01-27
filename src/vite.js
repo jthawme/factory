@@ -47,6 +47,6 @@ export const TransformServer = (opts) => ({
   name: "transform-server",
 
   configureServer(server) {
-    server.middlewares.use(app(opts));
+    server.middlewares.use(init(opts));
   },
 });
