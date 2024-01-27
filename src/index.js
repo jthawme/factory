@@ -23,7 +23,7 @@ export { getManifest } from "./modules/manifest.js";
  *
  * @param {string} file
  * @param {number} [depth]
- * @returns {Promise<>}
+ * @returns {Promise<FileContent>}
  */
 export const run = async (file, depth) => {
   const fileContent = await loadFile(file);
